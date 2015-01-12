@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 from django import forms
 from django.utils.safestring import mark_safe
+from django.utils.translation import gettext as _
 from paypal.standard.widgets import ValueHiddenInput, ReservedValueHiddenInput
 from paypal.standard.conf import (POSTBACK_ENDPOINT, SANDBOX_POSTBACK_ENDPOINT,
                                   RECEIVER_EMAIL,
@@ -98,9 +99,10 @@ class PayPalPaymentsForm(forms.Form):
     no_shipping = forms.ChoiceField(widget=forms.HiddenInput(), choices=SHIPPING_CHOICES,
                                     initial=SHIPPING_CHOICES[0][0])
 
-    def __init__(self, button_type="buy", *args, **kwargs):
+    def __init__(self, button_type="buy", image=None, *args, **kwargs):
         super(PayPalPaymentsForm, self).__init__(*args, **kwargs)
         self.button_type = button_type
+        self.button_image = image
         if 'initial' in kwargs:
             # Dynamically create, so we can support everything PayPal does.
             for k, v in kwargs['initial'].items():
@@ -119,10 +121,15 @@ class PayPalPaymentsForm(forms.Form):
 
 
     def render(self):
-        return mark_safe(u"""<form action="%s" method="post">
-    %s
-    <input type="image" src="%s" border="0" name="submit" alt="Buy it Now" />
-</form>""" % (self.get_endpoint(), self.as_p(), self.get_image()))
+        return mark_safe(u"""<form action="%(action)s" method="post">
+    %(value)s
+    <input type="image" src="%(image)s" border="0" name="submit" alt="%(image_alt)s" />
+</form>""" % {
+        'action': self.get_endpoint(),
+        'value': self.as_p(),
+        'image': self.get_image(),
+        'image_alt': _('Buy it Now'),
+    })
 
 
     def sandbox(self):
@@ -133,6 +140,8 @@ class PayPalPaymentsForm(forms.Form):
         return self.render()
 
     def get_image(self):
+        if self.button_image:
+            return self.button_image
         return {
             (True, self.SUBSCRIBE): SUBSCRIPTION_SANDBOX_IMAGE,
             (True, self.BUY): SANDBOX_IMAGE,
